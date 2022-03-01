@@ -54,10 +54,10 @@ public class Robot extends TimedRobot {
   boolean shoot_switch = false; // 射球開關
   boolean climb_switch = false; // 攀爬開關
   boolean check_basket_switch = false; // 找框開關
-  boolean check_ball_switch = false; // 找框開關
-  boolean is_basket = false;
-  boolean is_ball = false;
-  boolean auto_status = false;
+  boolean check_ball_switch = false; // 找球開關
+  boolean is_basket = false; // 是否找到球框
+  boolean is_ball = false; // 是否找到球
+  boolean auto_status = false; // 目前是否為自動狀態
 
   // NetworkTable limelight 相關設定
   NetworkTable limelight_table;
@@ -118,7 +118,7 @@ public class Robot extends TimedRobot {
   int kTimeoutMs = 30;
 
   // 周邊設備連接宣告
-  private final XboxController m_driverController_1 = new XboxController(0); // XBOX搖桿
+  private final XboxController m_driverController_1 = new XboxController(0); // 飛控搖桿
   private final XboxController m_driverController_2 = new XboxController(1); // XBOX搖桿
   private final Spark m_motor_pick = new Spark(0); // 撿球------PWM:1
   private final Spark m_motor_dribble = new Spark(1); // 運球------PWM:2
@@ -130,15 +130,14 @@ public class Robot extends TimedRobot {
   private final CANSparkMax m_motor26 = new CANSparkMax(26, MotorType.kBrushless); // 右前------CANID:4
   private final CANSparkMax m_motor27 = new CANSparkMax(27, MotorType.kBrushless); // 右前------CANID:6
   private final CANSparkMax m_motor28 = new CANSparkMax(28, MotorType.kBrushless); // 右前------CANID:6
-  private final DigitalOutput lidarlite_trigger = new DigitalOutput(0); // LIDAR-Lite Trigger Pin------DIO:0
-  private final DigitalInput lidarlite_monitor = new DigitalInput(1); // LIDAR-Lite Monitor Pin------DIO:1
-  private final DigitalInput forwardlimitswith_dribble = new DigitalInput(2); // 微動開關------DIO:2
-  private final DigitalInput forwardlimitswith_climb1 = new DigitalInput(3); // 微動開關左登山者------DIO:3
-  private final DigitalInput forwardlimitswith_climb2 = new DigitalInput(4); // 微動開關右登山者------DIO:4
-  private Servo pick_servo = new Servo(0);
-  private Counter m_LIDAR;
-  AddressableLED m_led = new AddressableLED(9);
-  AddressableLEDBuffer m_ledBuffer = new AddressableLEDBuffer(250);// led數量
+  private final DigitalOutput lidarlite_trigger = new DigitalOutput(0); // 光達 LIDAR-Lite Trigger Pin------DIO:0
+  private final DigitalInput lidarlite_monitor = new DigitalInput(1); // 光達 LIDAR-Lite Monitor Pin------DIO:1
+  private final DigitalInput forwardlimitswith_dribble = new DigitalInput(2);   // 微動開關運球停止------DIO:2
+  private final DigitalInput forwardlimitswith_climbup = new DigitalInput(3);   // 微動開關登山者放鬆------DIO:3
+  private final DigitalInput forwardlimitswith_climbdown = new DigitalInput(4); // 微動開關登山者收回------DIO:4
+  private Servo pick_servo = new Servo(0); // 撿球結構
+  private AddressableLED m_led = new AddressableLED(9); // LED控制器
+  private AddressableLEDBuffer m_ledBuffer = new AddressableLEDBuffer(250); // led數量
   public final RelativeEncoder m_encoder25 = m_motor25.getEncoder();
   public final RelativeEncoder m_encoder26 = m_motor26.getEncoder();
   private SparkMaxPIDController m_pidController25;
@@ -168,9 +167,11 @@ public class Robot extends TimedRobot {
   }
 
   // 光達初始化
+  private Counter m_LIDAR;
+
   private void lidar_init() {
     lidarlite_trigger.set(false);
-    m_LIDAR = new Counter(lidarlite_monitor); // plug the lidar into PWM 0
+    m_LIDAR = new Counter(lidarlite_monitor); // plug the lidar into DIO
     m_LIDAR.setMaxPeriod(1.00); // set the max period that can be measured
     m_LIDAR.setSemiPeriodMode(true); // Set the counter to period measurement
     m_LIDAR.reset();
@@ -334,7 +335,7 @@ public class Robot extends TimedRobot {
           // }
         }
 
-        //前後左右一起調
+        // 前後左右一起調
         // if (Math.abs(limelight_center_x) >= limelight_middle_x + limelight_range_x ||
         // Math.abs(limelight_center_D) >= limelight_middle_D + limelight_range_D &&
         // limelight_area != 0) {
@@ -348,6 +349,7 @@ public class Robot extends TimedRobot {
       }
     }
   }
+
   private void check_ball(boolean run) {
     table_raspberrypi = NetworkTableInstance.getDefault().getTable("Vision");
     raspberrypi_area = table_raspberrypi.getEntry("area").getDouble(0);
@@ -383,8 +385,8 @@ public class Robot extends TimedRobot {
     // m_chooser.addOption("My Auto", kCustomAuto);
     // SmartDashboard.putData("Auto choices", m_chooser);
     SmartDashboard.putBoolean("Drib limit", forwardlimitswith_dribble.get());
-    SmartDashboard.putBoolean("climb switch left",forwardlimitswith_climb1.get());
-    SmartDashboard.putBoolean("climb switch right",forwardlimitswith_climb2.get());
+    SmartDashboard.putBoolean("climb switch left", forwardlimitswith_climbup.get());
+    SmartDashboard.putBoolean("climb switch right", forwardlimitswith_climbdown.get());
     SmartDashboard.putBoolean("Pick status", pick_switch);
     SmartDashboard.putBoolean("Drib status", dribble_switch);
     SmartDashboard.putBoolean("Shoot status", shoot_switch);
@@ -618,9 +620,15 @@ public class Robot extends TimedRobot {
       climb_switch = !climb_switch;
     }
     if (climb_switch) {
-      if (m_driverController_2.getLeftTriggerAxis() > 0) {
+      // 放鬆，如果放鬆到頂，避免過放反轉
+      if (m_driverController_2.getLeftTriggerAxis() > 0 && forwardlimitswith_climbup.get()) {
         climb(true, m_driverController_2.getLeftTriggerAxis());
-      } else if (m_driverController_2.getRightTriggerAxis() > 0) {
+      } else {
+        climb(false, 0);
+      }
+
+      // 收回，如果已收回到底，避免過收
+      if (m_driverController_2.getRightTriggerAxis() > 0 && forwardlimitswith_climbdown.get()) {
         climb(true, -m_driverController_2.getRightTriggerAxis());
       } else {
         climb(false, 0);
@@ -635,7 +643,7 @@ public class Robot extends TimedRobot {
 
     // 設定距離
     if (m_driverController_2.getStartButton()) {
-    set_D_to_car();
+      set_D_to_car();
     }
 
     // limelight 找框
