@@ -132,9 +132,9 @@ public class Robot extends TimedRobot {
   private final CANSparkMax m_motor28 = new CANSparkMax(28, MotorType.kBrushless); // 右前------CANID:6
   private final DigitalOutput lidarlite_trigger = new DigitalOutput(0); // 光達 LIDAR-Lite Trigger Pin------DIO:0
   private final DigitalInput lidarlite_monitor = new DigitalInput(1); // 光達 LIDAR-Lite Monitor Pin------DIO:1
-  private final DigitalInput forwardlimitswith_dribble = new DigitalInput(2);   // 微動開關運球停止------DIO:2
-  private final DigitalInput forwardlimitswith_climbup = new DigitalInput(3);   // 微動開關登山者放鬆------DIO:3
-  private final DigitalInput forwardlimitswith_climbdown = new DigitalInput(4); // 微動開關登山者收回------DIO:4
+  private final DigitalInput forwardlimitswith_dribble = new DigitalInput(2); // 微動開關運球停止------DIO:2
+  private final DigitalInput forwardlimitswith_climb = new DigitalInput(3); // 微動開關登山者左------DIO:3
+  private final DigitalInput forwardlimitswith_climb_right = new DigitalInput(4); // 微動開關登山者右------DIO:4
   private Servo pick_servo = new Servo(0); // 撿球結構
   private AddressableLED m_led = new AddressableLED(9); // LED控制器
   private AddressableLEDBuffer m_ledBuffer = new AddressableLEDBuffer(250); // led數量
@@ -149,8 +149,9 @@ public class Robot extends TimedRobot {
   public double kFF = 0.000015;
   public double kMaxOutput = 1;
   public double kMinOutput = -1;
-  public double start_time;
-  public double start_time1;
+  public double start_time_auto;
+  public double start_time_shoot;
+  public double start_time_climb;
 
   // Dashboard 自動化顯示
   // private static final String kDefaultAuto = "Default";
@@ -185,8 +186,8 @@ public class Robot extends TimedRobot {
     if (m_LIDAR.get() < 1)
       dist = 0;
     else
-      dist = (m_LIDAR.getPeriod() * 1000000.0 / 10.0) - lidarlite_off; // convert to distance. sensor is high 10 us for
-                                                                       // every
+      // convert to distance. sensor is high 10 us for every
+      dist = (m_LIDAR.getPeriod() * 1000000.0 / 10.0) - lidarlite_off;
     return dist;
   }
 
@@ -279,7 +280,7 @@ public class Robot extends TimedRobot {
     if (run) {
       m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
       m_pidController26.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
-      if (Timer.getFPGATimestamp() - start_time1 >= 0.5) {
+      if (Timer.getFPGATimestamp() - start_time_shoot >= 0.5) {
         m_motor_dribble.set(-1);
       } else {
         int[] stopindex = { 2 };
@@ -385,8 +386,8 @@ public class Robot extends TimedRobot {
     // m_chooser.addOption("My Auto", kCustomAuto);
     // SmartDashboard.putData("Auto choices", m_chooser);
     SmartDashboard.putBoolean("Drib limit", forwardlimitswith_dribble.get());
-    SmartDashboard.putBoolean("climb switch left", forwardlimitswith_climbup.get());
-    SmartDashboard.putBoolean("climb switch right", forwardlimitswith_climbdown.get());
+    SmartDashboard.putBoolean("climb switch left", forwardlimitswith_climb.get());
+    SmartDashboard.putBoolean("climb switch right", forwardlimitswith_climb_right.get());
     SmartDashboard.putBoolean("Pick status", pick_switch);
     SmartDashboard.putBoolean("Drib status", dribble_switch);
     SmartDashboard.putBoolean("Shoot status", shoot_switch);
@@ -467,7 +468,7 @@ public class Robot extends TimedRobot {
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     // System.out.println("Auto selected: " + m_autoSelected);
 
-    start_time = Timer.getFPGATimestamp();
+    start_time_auto = Timer.getFPGATimestamp();
     // 設定初始值
     pick_switch = false;
     dribble_switch = false;
@@ -496,12 +497,12 @@ public class Robot extends TimedRobot {
     m_pidController26.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
     if (m_encoder25.getVelocity() >= 2000 && auto_status) {
       m_motor_dribble.set(-1);
-      if (Timer.getFPGATimestamp() - start_time > 7 && Timer.getFPGATimestamp() - start_time < 12) {
+      if (Timer.getFPGATimestamp() - start_time_auto > 7 && Timer.getFPGATimestamp() - start_time_auto < 12) {
         m_motor21.set(-0.15);
         m_motor22.set(-0.15);
         m_motor23.set(0.15);
         m_motor24.set(0.15);
-      } else if (Timer.getFPGATimestamp() - start_time >= 12) {
+      } else if (Timer.getFPGATimestamp() - start_time_auto >= 12) {
         auto_status = false;
         m_motor21.set(0);
         m_motor22.set(0);
@@ -546,7 +547,7 @@ public class Robot extends TimedRobot {
     // 設定一般鏡頭
     table_raspberrypi = NetworkTableInstance.getDefault().getTable("Vision");
     raspberrypi_center_middle_x = table_raspberrypi.getEntry("middle").getDouble(0);
-    start_time = Timer.getFPGATimestamp();
+    start_time_auto = Timer.getFPGATimestamp();
   }
 
   /** This function is called periodically during operator control. */
@@ -594,7 +595,7 @@ public class Robot extends TimedRobot {
       shoot_switch = !shoot_switch; // 切換射球開關
       if (shoot_switch) {
         dribble_switch = false;
-        start_time1 = Timer.getFPGATimestamp();
+        start_time_shoot = Timer.getFPGATimestamp();
       }
     } else {
       if (!forwardlimitswith_dribble.get()) {
@@ -619,19 +620,26 @@ public class Robot extends TimedRobot {
     if (m_driverController_2.getAButtonReleased()) {
       climb_switch = !climb_switch;
     }
+
     if (climb_switch) {
-      // 放鬆，如果放鬆到頂，避免過放反轉
-      if (m_driverController_2.getLeftTriggerAxis() > 0 && forwardlimitswith_climbup.get()) {
+      // 反轉
+      if (m_driverController_2.getLeftTriggerAxis() > 0 && forwardlimitswith_climb.get()) {
         climb(true, m_driverController_2.getLeftTriggerAxis());
       } else {
+        climb(true, -0.1);
+        Timer.delay(0.5);
+        climb_switch = false;
         climb(false, 0);
       }
 
-      // 收回，如果已收回到底，避免過收
-      if (m_driverController_2.getRightTriggerAxis() > 0 && forwardlimitswith_climbdown.get()) {
+      // 正轉
+      if (m_driverController_2.getRightTriggerAxis() > 0 && forwardlimitswith_climb.get()) {
         climb(true, -m_driverController_2.getRightTriggerAxis());
       } else {
+        climb(true, 0.1);
+        Timer.delay(0.5);
         climb(false, 0);
+        climb_switch = false;
       }
     }
 
@@ -717,6 +725,28 @@ public class Robot extends TimedRobot {
     // 攀爬
     if (m_driverController_2.getAButtonReleased()) {
       climb_switch = !climb_switch;
+    }
+
+    if (climb_switch) {
+      // 反轉
+      if (m_driverController_2.getLeftTriggerAxis() > 0 && forwardlimitswith_climb.get()) {
+        climb(true, m_driverController_2.getLeftTriggerAxis());
+      } else {
+        climb(true, -0.1);
+        Timer.delay(0.5);
+        climb_switch = false;
+        climb(false, 0);
+      }
+
+      // 正轉
+      if (m_driverController_2.getRightTriggerAxis() > 0 && forwardlimitswith_climb.get()) {
+        climb(true, -m_driverController_2.getRightTriggerAxis());
+      } else {
+        climb(true, 0.1);
+        Timer.delay(0.5);
+        climb(false, 0);
+        climb_switch = false;
+      }
     }
   }
 }
