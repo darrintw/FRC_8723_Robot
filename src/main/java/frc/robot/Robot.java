@@ -443,14 +443,8 @@ public class Robot extends TimedRobot {
     show_dashboard();
     lidar_init(); // 初始化光達
     // 初始化LED
-<<<<<<< HEAD
     led_init();
 
-=======
-    m_led_2.setLength(m_ledBuffer.getLength());
-    // m_led_3.setLength(m_ledBuffer.getLength());
-    led_set(255, 97, 0);//橘燈
->>>>>>> 7780eb8faa670d1a9948ec6cf56b000b08296fca
     // 初始化NEO
     m_motor25.restoreFactoryDefaults();
     m_motor26.restoreFactoryDefaults();
