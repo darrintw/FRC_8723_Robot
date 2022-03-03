@@ -123,10 +123,9 @@ public class Robot extends TimedRobot {
   private final DigitalInput forwardlimitswith_dribble = new DigitalInput(2); // 微動開關運球停止------DIO:2
   private final DigitalInput forwardlimitswith_climb = new DigitalInput(3); // 微動開關登山者左------DIO:3
   private final DigitalInput forwardlimitswith_climb_right = new DigitalInput(4); // 微動開關登山者右------DIO:4
-  private AddressableLED m_led_8 = new AddressableLED(8); // LED控制器
-  private AddressableLED m_led_9 = new AddressableLED(9); // LED控制器
-  private AddressableLEDBuffer m_ledBuffer_8 = new AddressableLEDBuffer(120); // led數量
-  private AddressableLEDBuffer m_ledBuffer_9 = new AddressableLEDBuffer(120); // led數量9
+  private AddressableLED m_led_2 = new AddressableLED(2); // LED控制器
+  private AddressableLED m_led_3 = new AddressableLED(3); // LED控制器
+  private AddressableLEDBuffer m_ledBuffer = new AddressableLEDBuffer(18); // led數量
   public final RelativeEncoder m_encoder25 = m_motor25.getEncoder();
   public final RelativeEncoder m_encoder26 = m_motor26.getEncoder();
   private SparkMaxPIDController m_pidController25;
@@ -146,23 +145,20 @@ public class Robot extends TimedRobot {
   public double climb_clock = 1;
 
   // Dashboard 自動化顯示
-  // private static final String kDefaultAuto = "Default";
-  // private static final String kCustomAuto = "My Auto";
-  // private String m_autoSelected;
-  // private final SendableChooser<String> m_chooser = new SendableChooser<>();
+  private static final String kDefaultAuto = "Default";
+  private static final String kCustomAuto = "My Auto";
+  private String m_autoSelected;
+  private final SendableChooser<String> m_chooser = new SendableChooser<>();
+
   private void led_set(int r, int g, int b) {
-    for (var i = 0; i < m_ledBuffer_8.getLength(); i++) {
+    for (var i = 0; i < m_ledBuffer.getLength(); i++) {
       // Sets the specified LED to the RGB values for red
-      m_ledBuffer_8.setRGB(i, r, g, b);
+      m_ledBuffer.setRGB(i, r, g, b);
     }
-    for (var i = 0; i < m_ledBuffer_9.getLength(); i++) {
-      // Sets the specified LED to the RGB values for red
-      m_ledBuffer_9.setRGB(i, r, g, b);
-    }
-    m_led_8.setData(m_ledBuffer_8);
-    m_led_9.setData(m_ledBuffer_9);
-    m_led_8.setData(m_ledBuffer_8);
-    m_led_9.start();
+    m_led_2.setData(m_ledBuffer);
+    // m_led_3.setData(m_ledBuffer);
+    m_led_2.start();
+    // m_led_3.start();
   }
 
   // 光達初始化
@@ -440,10 +436,9 @@ public class Robot extends TimedRobot {
     show_dashboard();
     lidar_init(); // 初始化光達
     // 初始化LED
-    m_led_8.setLength(m_ledBuffer_8.getLength());
-    m_led_9.setLength(m_ledBuffer_9.getLength());
-    m_led_8.start();
-    m_led_9.start();
+    m_led_2.setLength(m_ledBuffer.getLength());
+    // m_led_3.setLength(m_ledBuffer.getLength());
+    led_set(255, 97, 0);
     // 初始化NEO
     m_motor25.restoreFactoryDefaults();
     m_motor26.restoreFactoryDefaults();
@@ -502,11 +497,9 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    // pick_servo.set(0);
     // m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     // System.out.println("Auto selected: " + m_autoSelected);
-
     start_time_auto = Timer.getFPGATimestamp();
     // 設定初始值
     pick_switch = false;
@@ -525,12 +518,14 @@ public class Robot extends TimedRobot {
     // 設定一般鏡頭
     table_raspberrypi = NetworkTableInstance.getDefault().getTable("Vision");
     raspberrypi_center_middle_x = table_raspberrypi.getEntry("middle").getDouble(0);
+
+    led_set(255, 97, 0);
+
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
-    // pick_servo.set(180);
     show_dashboard();
     m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
     m_pidController26.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
@@ -588,11 +583,13 @@ public class Robot extends TimedRobot {
     raspberrypi_center_middle_x = table_raspberrypi.getEntry("middle").getDouble(0);
     start_time_auto = Timer.getFPGATimestamp();
     start_time_led = Timer.getFPGATimestamp();
+    led_set(255, 97, 0);
   }
 
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
+    // show_status();
     limelight_pidController_x = new PIDController(limelight_x_kP, limelight_x_kI, limelight_x_kD);
 
     // limelight_pidController_y = new PIDController(limelight_y_kP, limelight_y_kI,
@@ -600,11 +597,6 @@ public class Robot extends TimedRobot {
     raspberrypi_pidController_x = new PIDController(raspberrypi_x_kP, raspberrypi_x_kI, raspberrypi_x_kD);
     // raspberrypi_pidController_y = new PIDController(raspberrypi_y_kP,
     // raspberrypi_y_kI, raspberrypi_y_kD);
-    if (dribble_switch) {
-      led_set(255, 255, 255);
-    } else {
-      led_set(0, 0, 0);
-    }
     // 移動車
     double joy_speed = -m_driverController_1.getRawAxis(0) * 0.7;
     double joy_turn = m_driverController_1.getRawAxis(1) * 0.5;
