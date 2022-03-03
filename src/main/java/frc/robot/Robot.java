@@ -10,8 +10,6 @@ import edu.wpi.first.wpilibj.AddressableLEDBuffer;
 import edu.wpi.first.wpilibj.Counter;
 import edu.wpi.first.wpilibj.DigitalInput;
 import edu.wpi.first.wpilibj.DigitalOutput;
-// import edu.wpi.first.wpilibj.Encoder;
-import edu.wpi.first.wpilibj.Servo;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.smartdashboard.*;
@@ -21,12 +19,6 @@ import com.revrobotics.CANSparkMax;
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.SparkMaxPIDController;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-
-// import javax.lang.model.util.ElementScanner6;
-
-// import com.ctre.phoenix.motorcontrol.ControlMode;
-// import com.ctre.phoenix.motorcontrol.FeedbackDevice;
-// import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 import edu.wpi.first.networktables.*;
 import edu.wpi.first.math.controller.PIDController;
 
@@ -47,7 +39,7 @@ public class Robot extends TimedRobot {
    */
   // 參數定義
   double pick_speed = 0.6; // 撿球速度
-  double neo_shoot_speed = 15000; // 射球轉速
+  double neo_shoot_speed = 12000; // 射球轉速
   double joy_limite = 0.025; // 過濾Xbox香菇頭抖動值
   boolean pick_switch = false; // 撿球開關
   boolean dribble_switch = false; // 運球開關
@@ -135,9 +127,10 @@ public class Robot extends TimedRobot {
   private final DigitalInput forwardlimitswith_dribble = new DigitalInput(2); // 微動開關運球停止------DIO:2
   private final DigitalInput forwardlimitswith_climb = new DigitalInput(3); // 微動開關登山者左------DIO:3
   private final DigitalInput forwardlimitswith_climb_right = new DigitalInput(4); // 微動開關登山者右------DIO:4
-  private Servo pick_servo = new Servo(0); // 撿球結構
-  private AddressableLED m_led = new AddressableLED(9); // LED控制器
-  private AddressableLEDBuffer m_ledBuffer = new AddressableLEDBuffer(250); // led數量
+  private AddressableLED m_led_8 = new AddressableLED(8); // LED控制器
+  private AddressableLED m_led_9 = new AddressableLED(9); // LED控制器
+  private AddressableLEDBuffer m_ledBuffer_8 = new AddressableLEDBuffer(120); // led數量
+  private AddressableLEDBuffer m_ledBuffer_9 = new AddressableLEDBuffer(120); // led數量9
   public final RelativeEncoder m_encoder25 = m_motor25.getEncoder();
   public final RelativeEncoder m_encoder26 = m_motor26.getEncoder();
   private SparkMaxPIDController m_pidController25;
@@ -152,6 +145,7 @@ public class Robot extends TimedRobot {
   public double start_time_auto;
   public double start_time_shoot;
   public double start_time_climb;
+  public double climb_clock = 1;
 
   // Dashboard 自動化顯示
   // private static final String kDefaultAuto = "Default";
@@ -159,12 +153,18 @@ public class Robot extends TimedRobot {
   // private String m_autoSelected;
   // private final SendableChooser<String> m_chooser = new SendableChooser<>();
   private void led_set(int r, int g, int b) {
-    for (var i = 0; i < m_ledBuffer.getLength(); i++) {
+    for (var i = 0; i < m_ledBuffer_8.getLength(); i++) {
       // Sets the specified LED to the RGB values for red
-      m_ledBuffer.setRGB(i, r, g, b);
+      m_ledBuffer_8.setRGB(i, r, g, b);
     }
-    m_led.setData(m_ledBuffer);
-    m_led.start();
+    for (var i = 0; i < m_ledBuffer_9.getLength(); i++) {
+      // Sets the specified LED to the RGB values for red
+      m_ledBuffer_9.setRGB(i, r, g, b);
+    }
+    m_led_8.setData(m_ledBuffer_8);
+    m_led_9.setData(m_ledBuffer_9);
+    m_led_8.setData(m_ledBuffer_8);
+    m_led_9.start();
   }
 
   // 光達初始化
@@ -178,9 +178,9 @@ public class Robot extends TimedRobot {
     m_LIDAR.reset();
   }
 
-  private final double lidarlite_off = 5; // offset for LIDAT-Lite sensor. test with tape measure
-  // 光達測距離
+  private final double lidarlite_off = 5;
 
+  // 光達測距離
   public double lidar_getDistinct() {
     double dist;
     if (m_LIDAR.get() < 1)
@@ -278,9 +278,9 @@ public class Robot extends TimedRobot {
   // 射球
   private void shootball_by_neo(boolean run, double speed) {
     if (run) {
-      m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
+      m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kSmartVelocity);
       m_pidController26.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
-      if (Timer.getFPGATimestamp() - start_time_shoot >= 0.5) {
+      if (m_encoder25.getVelocity() >= 0) {
         m_motor_dribble.set(-1);
       } else {
         int[] stopindex = { 2 };
@@ -380,13 +380,35 @@ public class Robot extends TimedRobot {
     }
   }
 
+  private void show_status() {
+    if (!climb_switch) {
+      if (pick_switch && dribble_switch) {
+        led_set(255, 255, 0);
+      } else if (dribble_switch) {
+
+      } else if (shoot_switch) {
+
+      }
+    } else if (climb_switch) {
+      if (climb_clock == 1) { // 順時鐘狀態
+        
+      }
+      if (climb_clock == -1) { // 逆時鐘狀態
+
+      }
+    }
+    else if(is_basket){
+      led_set(0, 255, 0);
+    }
+  }
+
   private void show_dashboard() {
     // Dashboard初始設定
     // m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     // m_chooser.addOption("My Auto", kCustomAuto);
     // SmartDashboard.putData("Auto choices", m_chooser);
     SmartDashboard.putBoolean("Drib limit", forwardlimitswith_dribble.get());
-    SmartDashboard.putBoolean("climb switch left", forwardlimitswith_climb.get());
+    SmartDashboard.putBoolean("climb switch", forwardlimitswith_climb.get());
     SmartDashboard.putBoolean("climb switch right", forwardlimitswith_climb_right.get());
     SmartDashboard.putBoolean("Pick status", pick_switch);
     SmartDashboard.putBoolean("Drib status", dribble_switch);
@@ -395,16 +417,18 @@ public class Robot extends TimedRobot {
     SmartDashboard.putBoolean("Check ball", check_ball_switch);
     SmartDashboard.putBoolean("Check basket", check_basket_switch);
     SmartDashboard.putBoolean("Auto Status", auto_status);
+    SmartDashboard.putNumber("Climb Clock", climb_clock);
   }
 
   @Override
   public void robotInit() {
-    pick_servo.set(0);
     show_dashboard();
     lidar_init(); // 初始化光達
     // 初始化LED
-    m_led.setLength(m_ledBuffer.getLength());
-    m_led.start();
+    m_led_8.setLength(m_ledBuffer_8.getLength());
+    m_led_9.setLength(m_ledBuffer_9.getLength());
+    m_led_8.start();
+    m_led_9.start();
     // 初始化NEO
     m_motor25.restoreFactoryDefaults();
     m_motor26.restoreFactoryDefaults();
@@ -463,7 +487,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    pick_servo.set(0);
+    // pick_servo.set(0);
     // m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     // System.out.println("Auto selected: " + m_autoSelected);
@@ -480,7 +504,7 @@ public class Robot extends TimedRobot {
     is_basket = false;
     is_ball = false;
     pick_speed = 0.6;
-    neo_shoot_speed = 10000;
+    neo_shoot_speed = 12000;
     limelight_middle_x = 0;
     limelight_middle_D = 50;
     // 設定一般鏡頭
@@ -491,11 +515,11 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
-    pick_servo.set(180);
+    // pick_servo.set(180);
     show_dashboard();
     m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
     m_pidController26.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
-    if (m_encoder25.getVelocity() >= 2000 && auto_status) {
+    if (m_encoder25.getVelocity() >= 0 && auto_status) {
       m_motor_dribble.set(-1);
       if (Timer.getFPGATimestamp() - start_time_auto > 7 && Timer.getFPGATimestamp() - start_time_auto < 12) {
         m_motor21.set(-0.15);
@@ -541,7 +565,7 @@ public class Robot extends TimedRobot {
     is_basket = false;
     is_ball = false;
     pick_speed = 0.6;
-    neo_shoot_speed = 10000;
+    neo_shoot_speed = 12000;
     limelight_middle_x = 0;
     limelight_middle_D = 50;
     // 設定一般鏡頭
@@ -590,6 +614,7 @@ public class Robot extends TimedRobot {
       pick_speed -= 0.05;
     }
     pickball(pick_switch, pick_speed);
+
     // 射球
     if (m_driverController_2.getYButtonReleased()) {
       shoot_switch = !shoot_switch; // 切換射球開關
@@ -605,6 +630,7 @@ public class Robot extends TimedRobot {
       }
     }
     dribbleball(dribble_switch);
+
     // 射球馬達增減速
     if (m_driverController_2.getPOV() == 0) {
       neo_shoot_speed += 500;
@@ -622,24 +648,23 @@ public class Robot extends TimedRobot {
     }
 
     if (climb_switch) {
-      // 反轉
-      if (m_driverController_2.getLeftTriggerAxis() > 0 && forwardlimitswith_climb.get()) {
-        climb(true, m_driverController_2.getLeftTriggerAxis());
+      if (forwardlimitswith_climb.get()) {
+        if (m_driverController_2.getLeftTriggerAxis() > 0) { // 順時鐘
+          climb(true, m_driverController_2.getLeftTriggerAxis() * 0.4);
+          climb_clock = 1;
+        } else if (m_driverController_2.getRightTriggerAxis() > 0) { // 逆時鐘
+          climb(true, -m_driverController_2.getRightTriggerAxis() * 0.4);
+          climb_clock = -1;
+        } else {
+          climb(false, 0);
+        }
       } else {
-        climb(true, -0.1);
-        Timer.delay(0.5);
-        climb_switch = false;
+        if (!forwardlimitswith_climb.get()) {
+          climb(true, 0.06 * -climb_clock);
+          Timer.delay(0.3);
+          climb_switch = false;
+        }
         climb(false, 0);
-      }
-
-      // 正轉
-      if (m_driverController_2.getRightTriggerAxis() > 0 && forwardlimitswith_climb.get()) {
-        climb(true, -m_driverController_2.getRightTriggerAxis());
-      } else {
-        climb(true, 0.1);
-        Timer.delay(0.5);
-        climb(false, 0);
-        climb_switch = false;
       }
     }
 
@@ -700,6 +725,7 @@ public class Robot extends TimedRobot {
   @Override
   public void testPeriodic() {
     show_dashboard();
+
     // 撿球
     if (m_driverController_2.getXButtonReleased()) {
       pick_switch = !pick_switch;
@@ -728,24 +754,23 @@ public class Robot extends TimedRobot {
     }
 
     if (climb_switch) {
-      // 反轉
-      if (m_driverController_2.getLeftTriggerAxis() > 0 && forwardlimitswith_climb.get()) {
-        climb(true, m_driverController_2.getLeftTriggerAxis());
+      if (forwardlimitswith_climb.get()) {
+        if (m_driverController_2.getLeftTriggerAxis() > 0) { // 順時鐘
+          climb(true, m_driverController_2.getLeftTriggerAxis() * 0.4);
+          climb_clock = 1;
+        } else if (m_driverController_2.getRightTriggerAxis() > 0) { // 逆時鐘
+          climb(true, -m_driverController_2.getRightTriggerAxis() * 0.4);
+          climb_clock = -1;
+        } else {
+          climb(false, 0);
+        }
       } else {
-        climb(true, -0.1);
-        Timer.delay(0.5);
-        climb_switch = false;
+        if (!forwardlimitswith_climb.get()) {
+          climb(true, 0.06 * -climb_clock);
+          Timer.delay(0.3);
+          climb_switch = false;
+        }
         climb(false, 0);
-      }
-
-      // 正轉
-      if (m_driverController_2.getRightTriggerAxis() > 0 && forwardlimitswith_climb.get()) {
-        climb(true, -m_driverController_2.getRightTriggerAxis());
-      } else {
-        climb(true, 0.1);
-        Timer.delay(0.5);
-        climb(false, 0);
-        climb_switch = false;
       }
     }
   }
