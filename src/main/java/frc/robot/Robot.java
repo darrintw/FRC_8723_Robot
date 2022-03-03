@@ -122,10 +122,10 @@ public class Robot extends TimedRobot {
   private final DigitalInput lidarlite_monitor = new DigitalInput(1); // 光達 LIDAR-Lite Monitor Pin------DIO:1
   private final DigitalInput forwardlimitswith_dribble = new DigitalInput(2); // 微動開關運球停止------DIO:2
   private final DigitalInput forwardlimitswith_climb = new DigitalInput(3); // 微動開關登山者左------DIO:3
-  private final DigitalInput forwardlimitswith_climb_right = new DigitalInput(4); // 微動開關登山者右------DIO:4
-  private AddressableLED m_led_2 = new AddressableLED(2); // LED控制器
-  private AddressableLED m_led_3 = new AddressableLED(3); // LED控制器
-  private AddressableLEDBuffer m_ledBuffer = new AddressableLEDBuffer(18); // led數量
+  // private final DigitalInput forwardlimitswith_climb_right = new
+  // DigitalInput(4); // 微動開關登山者右------DIO:4
+  private AddressableLED m_led;
+  private AddressableLEDBuffer m_ledBuffer;
   public final RelativeEncoder m_encoder25 = m_motor25.getEncoder();
   public final RelativeEncoder m_encoder26 = m_motor26.getEncoder();
   private SparkMaxPIDController m_pidController25;
@@ -145,20 +145,27 @@ public class Robot extends TimedRobot {
   public double climb_clock = 1;
 
   // Dashboard 自動化顯示
-  private static final String kDefaultAuto = "Default";
-  private static final String kCustomAuto = "My Auto";
-  private String m_autoSelected;
-  private final SendableChooser<String> m_chooser = new SendableChooser<>();
+  // private static final String kDefaultAuto = "Default";
+  // private static final String kCustomAuto = "My Auto";
+  // private String m_autoSelected;
+  // private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
-  private void led_set(int r, int g, int b) {
+  //
+  private void led_init() {
+    m_led = new AddressableLED(2); // LED控制器
+    m_ledBuffer = new AddressableLEDBuffer(18); // led數量
+    m_led.setLength(m_ledBuffer.getLength());
+    led_set(255, 97, 0, m_led, m_ledBuffer);
+  }
+
+  // 設定led
+  private void led_set(int r, int g, int b, AddressableLED m_led, AddressableLEDBuffer m_ledBuffer) {
     for (var i = 0; i < m_ledBuffer.getLength(); i++) {
       // Sets the specified LED to the RGB values for red
       m_ledBuffer.setRGB(i, r, g, b);
     }
-    m_led_2.setData(m_ledBuffer);
-    // m_led_3.setData(m_ledBuffer);
-    m_led_2.start();
-    // m_led_3.start();
+    m_led.setData(m_ledBuffer);
+    m_led.start();
   }
 
   // 光達初始化
@@ -375,41 +382,40 @@ public class Robot extends TimedRobot {
     }
   }
 
+  // 用LED顯示狀態
   private void show_status() {
     if (!climb_switch) {
       if (lidar_getDistinct() <= 50) {
-        while (lidar_getDistinct() <= 50) {
-          if (Timer.getFPGATimestamp() - start_time_led >= 0.1) {
-            start_time_led = Timer.getFPGATimestamp();
-            led_set(255, 0, 0);
-          }
-        }
+        // while (lidar_getDistinct() <= 50) {
+        //   if (Timer.getFPGATimestamp() - start_time_led >= 0.1) {
+        //     start_time_led = Timer.getFPGATimestamp();
+        //     led_set(255, 0, 0, m_led, m_ledBuffer);
+        //   }
+        // }
       } else {
         if (shoot_switch) { // 藍到紫
           int r = 0;
-          while (r <= 127 && shoot_switch) {
-            if (Timer.getFPGATimestamp() - start_time_led >= 0.1) {
-              start_time_led = Timer.getFPGATimestamp();
-              led_set(r, 0, 127);
-              r += 5;
-            }
-          }
+          // while (r <= 127 && shoot_switch) {
+          //   if (Timer.getFPGATimestamp() - start_time_led >= 0.1) {
+          //     start_time_led = Timer.getFPGATimestamp();
+          //     led_set(255, 0, 0, m_led, m_ledBuffer);
+          //     r += 5;
+          //   }
+          // }
         } else if (dribble_switch) {
-          led_set(255, 255, 0); // 黃燈
+          led_set(255, 255, 0, m_led, m_ledBuffer); // 黃燈
         } else {
-          led_set(0, 0, 255);
+          led_set(0, 0, 255, m_led, m_ledBuffer);
         }
       }
-
-    } else if (climb_switch)
-
-    {
-      led_set(0, 255, 0);
+    } else if (climb_switch) {
+      System.out.println("Show");      
+      led_set(0, 255, 0, m_led, m_ledBuffer);
     } else if (check_basket_switch) {
-      while (check_basket_switch && Timer.getFPGATimestamp() - start_time_led >= Math.abs(limelight_output_x)) {
-        start_time_led = Timer.getFPGATimestamp();
-        led_set(238, 130, 238);
-      }
+      // while (check_basket_switch && Timer.getFPGATimestamp() - start_time_led >= Math.abs(limelight_output_x)) {
+      //   start_time_led = Timer.getFPGATimestamp();
+      //   led_set(238, 130, 238, m_led, m_ledBuffer);
+      // }
     }
   }
 
@@ -420,7 +426,8 @@ public class Robot extends TimedRobot {
     // SmartDashboard.putData("Auto choices", m_chooser);
     SmartDashboard.putBoolean("Drib limit", forwardlimitswith_dribble.get());
     SmartDashboard.putBoolean("climb switch", forwardlimitswith_climb.get());
-    SmartDashboard.putBoolean("climb switch right", forwardlimitswith_climb_right.get());
+    // SmartDashboard.putBoolean("climb switch right",
+    // forwardlimitswith_climb_right.get());
     SmartDashboard.putBoolean("Pick status", pick_switch);
     SmartDashboard.putBoolean("Drib status", dribble_switch);
     SmartDashboard.putBoolean("Shoot status", shoot_switch);
@@ -436,9 +443,8 @@ public class Robot extends TimedRobot {
     show_dashboard();
     lidar_init(); // 初始化光達
     // 初始化LED
-    m_led_2.setLength(m_ledBuffer.getLength());
-    // m_led_3.setLength(m_ledBuffer.getLength());
-    led_set(255, 97, 0);
+    led_init();
+
     // 初始化NEO
     m_motor25.restoreFactoryDefaults();
     m_motor26.restoreFactoryDefaults();
@@ -519,8 +525,8 @@ public class Robot extends TimedRobot {
     table_raspberrypi = NetworkTableInstance.getDefault().getTable("Vision");
     raspberrypi_center_middle_x = table_raspberrypi.getEntry("middle").getDouble(0);
 
-    led_set(255, 97, 0);
-
+    led_set(255, 97, 0, m_led, m_ledBuffer);
+    // led_set(255, 97, 0, m_led_3, m_ledBuffer_3);
   }
 
   /** This function is called periodically during autonomous. */
@@ -583,13 +589,14 @@ public class Robot extends TimedRobot {
     raspberrypi_center_middle_x = table_raspberrypi.getEntry("middle").getDouble(0);
     start_time_auto = Timer.getFPGATimestamp();
     start_time_led = Timer.getFPGATimestamp();
-    led_set(255, 97, 0);
+    led_set(255, 97, 0, m_led, m_ledBuffer);
+    // led_set(255, 97, 0, m_led_3, m_ledBuffer_3);
   }
 
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-    // show_status();
+    show_status();
     limelight_pidController_x = new PIDController(limelight_x_kP, limelight_x_kI, limelight_x_kD);
 
     // limelight_pidController_y = new PIDController(limelight_y_kP, limelight_y_kI,
@@ -733,7 +740,7 @@ public class Robot extends TimedRobot {
   @Override
   public void testPeriodic() {
     show_dashboard();
-
+    show_status();
     // 撿球
     if (m_driverController_2.getXButtonReleased()) {
       pick_switch = !pick_switch;
