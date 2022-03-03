@@ -438,7 +438,7 @@ public class Robot extends TimedRobot {
     // 初始化LED
     m_led_2.setLength(m_ledBuffer.getLength());
     // m_led_3.setLength(m_ledBuffer.getLength());
-    led_set(255, 97, 0);
+    led_set(255, 97, 0);//橘燈
     // 初始化NEO
     m_motor25.restoreFactoryDefaults();
     m_motor26.restoreFactoryDefaults();
