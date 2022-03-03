@@ -105,10 +105,6 @@ public class Robot extends TimedRobot {
   // PIDController raspberrypi_pidController_y = new
   // PIDController(raspberrypi_y_kP, raspberrypi_y_kI, raspberrypi_y_kD);
 
-  // Falon_PID相關參數設定
-  int kPIDLoopIdx = 0;
-  int kTimeoutMs = 30;
-
   // 周邊設備連接宣告
   private final XboxController m_driverController_1 = new XboxController(0); // 飛控搖桿
   private final XboxController m_driverController_2 = new XboxController(1); // XBOX搖桿
@@ -145,6 +141,8 @@ public class Robot extends TimedRobot {
   public double start_time_auto;
   public double start_time_shoot;
   public double start_time_climb;
+  public double start_time_led;
+  public double start_time_checkbasket;
   public double climb_clock = 1;
 
   // Dashboard 自動化顯示
@@ -322,10 +320,11 @@ public class Robot extends TimedRobot {
       if (limelight_area != 0) {
         // is_basket = false;
         if (Math.abs(limelight_center_x) >= limelight_middle_x + limelight_range_x) {
-          m_motor21.set(-limelight_output_x);
-          m_motor22.set(-limelight_output_x);
-          m_motor23.set(-limelight_output_x);
-          m_motor24.set(-limelight_output_x);
+          // m_motor21.set(-limelight_output_x);
+          // m_motor22.set(-limelight_output_x);
+          // m_motor23.set(-limelight_output_x);
+          // m_motor24.set(-limelight_output_x);
+          is_basket = false;
         } else {
           is_basket = true;
           // if (Math.abs(limelight_center_D) >= limelight_middle_D + limelight_range_D) {
@@ -382,23 +381,39 @@ public class Robot extends TimedRobot {
 
   private void show_status() {
     if (!climb_switch) {
-      if (pick_switch && dribble_switch) {
-        led_set(255, 255, 0);
-      } else if (dribble_switch) {
-
-      } else if (shoot_switch) {
-
+      if (lidar_getDistinct() <= 50) {
+        while (lidar_getDistinct() <= 50) {
+          if (Timer.getFPGATimestamp() - start_time_led >= 0.1) {
+            start_time_led = Timer.getFPGATimestamp();
+            led_set(255, 0, 0);
+          }
+        }
+      } else {
+        if (shoot_switch) { // 藍到紫
+          int r = 0;
+          while (r <= 127 && shoot_switch) {
+            if (Timer.getFPGATimestamp() - start_time_led >= 0.1) {
+              start_time_led = Timer.getFPGATimestamp();
+              led_set(r, 0, 127);
+              r += 5;
+            }
+          }
+        } else if (dribble_switch) {
+          led_set(255, 255, 0); // 黃燈
+        } else {
+          led_set(0, 0, 255);
+        }
       }
-    } else if (climb_switch) {
-      if (climb_clock == 1) { // 順時鐘狀態
-        
-      }
-      if (climb_clock == -1) { // 逆時鐘狀態
 
-      }
-    }
-    else if(is_basket){
+    } else if (climb_switch)
+
+    {
       led_set(0, 255, 0);
+    } else if (check_basket_switch) {
+      while (check_basket_switch && Timer.getFPGATimestamp() - start_time_led >= Math.abs(limelight_output_x)) {
+        start_time_led = Timer.getFPGATimestamp();
+        led_set(238, 130, 238);
+      }
     }
   }
 
@@ -572,6 +587,7 @@ public class Robot extends TimedRobot {
     table_raspberrypi = NetworkTableInstance.getDefault().getTable("Vision");
     raspberrypi_center_middle_x = table_raspberrypi.getEntry("middle").getDouble(0);
     start_time_auto = Timer.getFPGATimestamp();
+    start_time_led = Timer.getFPGATimestamp();
   }
 
   /** This function is called periodically during operator control. */
