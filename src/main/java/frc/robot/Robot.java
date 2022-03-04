@@ -20,6 +20,7 @@ import com.revrobotics.RelativeEncoder;
 import com.revrobotics.SparkMaxPIDController;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import edu.wpi.first.networktables.*;
+import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.math.controller.PIDController;
 
 /**
@@ -39,7 +40,7 @@ public class Robot extends TimedRobot {
    */
   // 參數定義
   double pick_speed = 0.6; // 撿球速度
-  double neo_shoot_speed = 12000; // 射球轉速
+  double neo_shoot_speed = 10000; // 射球轉速
   double joy_limite = 0.025; // 過濾Xbox香菇頭抖動值
   boolean pick_switch = false; // 撿球開關
   boolean dribble_switch = false; // 運球開關
@@ -296,7 +297,7 @@ public class Robot extends TimedRobot {
   private void shootball_by_neo(boolean run, double speed) {
     if (run) {
       System.out.println(neo_shoot_speed);
-      m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kSmartVelocity);
+      m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
       m_pidController26.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
       if (m_encoder25.getVelocity() >= 0) {
         m_motor_dribble.set(-1);
@@ -341,10 +342,11 @@ public class Robot extends TimedRobot {
       if (limelight_area != 0) {
         // is_basket = false;
         if (Math.abs(limelight_center_x) >= limelight_middle_x + limelight_range_x) {
-          // m_motor21.set(-limelight_output_x);
-          // m_motor22.set(-limelight_output_x);
-          // m_motor23.set(-limelight_output_x);
-          // m_motor24.set(-limelight_output_x);
+          // System.out.println(limelight_center_x);
+          m_motor21.set(-limelight_output_x);
+          m_motor22.set(-limelight_output_x);
+          m_motor23.set(-limelight_output_x);
+          m_motor24.set(-limelight_output_x);
           is_basket = false;
         } else {
           is_basket = true;
@@ -414,7 +416,7 @@ public class Robot extends TimedRobot {
       } 
       else if (!is_basket) 
       {
-        led_set(0, 0, 255, m_led, m_ledBuffer);
+        led_set(0, 255, 255, m_led, m_ledBuffer);
       }
     } 
     else if (climb_switch) 
@@ -492,7 +494,13 @@ public class Robot extends TimedRobot {
     // 設定電流與轉速
     // m_motor25.setSmartCurrentLimit(40, 15000);
     // m_motor26.setSmartCurrentLimit(40, 15000);
+    CameraServer.startAutomaticCapture(0);
   }
+  /*
+  private void visionThread() {
+    CameraServer.startAutomaticCapture(0);
+  }
+  */
 
   /**
    * This function is called every robot packet, no matter the mode. Use this for
@@ -543,7 +551,7 @@ public class Robot extends TimedRobot {
     is_basket = false;
     is_ball = false;
     pick_speed = 0.6;
-    neo_shoot_speed = 12000;
+    neo_shoot_speed = 10000;
     limelight_middle_x = 0;
     limelight_middle_D = 50;
     // 設定一般鏡頭
@@ -557,7 +565,7 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
-    show_dashboard();
+    //show_dashboard();
     m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
     m_pidController26.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
     if (m_encoder25.getVelocity() >= 0 && auto_status) {
@@ -595,7 +603,7 @@ public class Robot extends TimedRobot {
   /** This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {
-    show_dashboard();
+     //show_dashboard();
     // 設定初始值
     pick_switch = false;
     dribble_switch = false;
@@ -606,7 +614,7 @@ public class Robot extends TimedRobot {
     is_basket = false;
     is_ball = false;
     pick_speed = 0.6;
-    neo_shoot_speed = 12000;
+    neo_shoot_speed = 10000;
     limelight_middle_x = 0;
     limelight_middle_D = 50;
     // 設定一般鏡頭
@@ -645,18 +653,18 @@ public class Robot extends TimedRobot {
       pick_switch = !pick_switch;
     }
 
-    if (m_driverController_2.getPOV() == 90) {
-      if(pick_speed<1){
-        pick_speed += 0.05;
-      }
-    }
+    // if (m_driverController_2.getPOV() == 90) {
+    //   if(pick_speed<1){
+    //     pick_speed += 0.05;
+    //   }
+    // }
 
-    if (m_driverController_2.getPOV() == 270) {
-      if(pick_speed>0){
-        pick_speed -= 0.05;
+    // if (m_driverController_2.getPOV() == 270) {
+    //   if(pick_speed>0){
+    //     pick_speed -= 0.05;
 
-      }
-    }
+    //   }
+    // }
     pickball(pick_switch, pick_speed);
 
     // 射球
@@ -769,7 +777,7 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during test mode. */
   @Override
   public void testPeriodic() {
-    show_dashboard();
+    // show_dashboard();
     show_status();
     // 撿球
     if (m_driverController_2.getXButtonReleased()) {
