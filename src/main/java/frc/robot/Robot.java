@@ -60,7 +60,7 @@ public class Robot extends TimedRobot {
   double limelight_output_D;
   double limelight_middle_x = 0; // 回傳之X座標之目標值
   double limelight_middle_D = 50; // 回傳之Y座標之目標值
-  double limelight_range_x = 1;
+  double limelight_range_x = 5;
   double limelight_range_D = 5;
 
   // x_pid_index
@@ -125,6 +125,7 @@ public class Robot extends TimedRobot {
   // private final DigitalInput forwardlimitswith_climb_right = new
   // DigitalInput(4); // 微動開關登山者右------DIO:4
   private AddressableLED m_led;
+  private int m_rainbowFirstPixelHue = 0;
   private AddressableLEDBuffer m_ledBuffer;
   public final RelativeEncoder m_encoder25 = m_motor25.getEncoder();
   public final RelativeEncoder m_encoder26 = m_motor26.getEncoder();
@@ -138,7 +139,6 @@ public class Robot extends TimedRobot {
   public double kMaxOutput = 1;
   public double kMinOutput = -1;
   public double start_time_auto;
-  public double start_time_shoot;
   public double start_time_climb;
   public double start_time_led;
   public double start_time_checkbasket;
@@ -150,7 +150,23 @@ public class Robot extends TimedRobot {
   // private String m_autoSelected;
   // private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
-  //
+  private void rainbow() {
+    // For every pixel
+    for (var i = 0; i < m_ledBuffer.getLength(); i++) {
+      // Calculate the hue - hue is easier for rainbows because the color
+      // shape is a circle so only one value needs to precess
+      final var hue = (m_rainbowFirstPixelHue + (i * 180 / m_ledBuffer.getLength())) % 180;
+      // Set the value
+      m_ledBuffer.setHSV(i, hue, 255, 128);
+    }
+    m_led.setData(m_ledBuffer);
+    m_led.start();
+    // Increase by to make the rainbow "move"
+    m_rainbowFirstPixelHue += 3;
+    // Check bounds
+    m_rainbowFirstPixelHue %= 180;
+  }
+
   private void led_init() {
     m_led = new AddressableLED(2); // LED控制器
     m_ledBuffer = new AddressableLEDBuffer(50); // led數量
@@ -279,6 +295,7 @@ public class Robot extends TimedRobot {
   // 射球
   private void shootball_by_neo(boolean run, double speed) {
     if (run) {
+      System.out.println(neo_shoot_speed);
       m_pidController25.setReference(neo_shoot_speed, CANSparkMax.ControlType.kSmartVelocity);
       m_pidController26.setReference(neo_shoot_speed, CANSparkMax.ControlType.kVelocity);
       if (m_encoder25.getVelocity() >= 0) {
@@ -385,25 +402,39 @@ public class Robot extends TimedRobot {
 
   // 用LED顯示狀態
   private void show_status() {
-    if(shoot_switch) {
+    if(shoot_switch) 
+    {
       led_set(255, 0, 0, m_led, m_ledBuffer);
     }
-    else if (check_basket_switch) {
-      if (is_basket) {
+    else if (check_basket_switch) 
+    {
+      if (is_basket) 
+      {
         led_set(128, 0, 128, m_led, m_ledBuffer);
-      } else if (!is_basket) {
+      } 
+      else if (!is_basket) 
+      {
         led_set(0, 0, 255, m_led, m_ledBuffer);
       }
-    } else if (climb_switch) {
+    } 
+    else if (climb_switch) 
+    {
       led_set(0, 255, 0, m_led, m_ledBuffer);
     }
-    else if (!climb_switch || !check_basket_switch || !shoot_switch) {
-      if (lidar_getDistinct() <= 70) {
+    else if (!climb_switch && !check_basket_switch && !shoot_switch) 
+    {
+      if (lidar_getDistinct() <= 70) 
+      {
         led_set(255, 0, 0, m_led, m_ledBuffer);
-      } else {
-        if (dribble_switch) {
-          led_set(255, 97, 0, m_led, m_ledBuffer);
-        } else {
+      } 
+      else 
+      {
+        if (dribble_switch) 
+        {
+          rainbow();
+        } 
+        else 
+        {
           led_set(0, 0, 255, m_led, m_ledBuffer);
         }
       }
@@ -436,7 +467,6 @@ public class Robot extends TimedRobot {
     lidar_init(); // 初始化光達
     // 初始化LED
     led_init();
-
     // 初始化NEO
     m_motor25.restoreFactoryDefaults();
     m_motor26.restoreFactoryDefaults();
@@ -599,7 +629,7 @@ public class Robot extends TimedRobot {
     // raspberrypi_pidController_y = new PIDController(raspberrypi_y_kP,
     // raspberrypi_y_kI, raspberrypi_y_kD);
     // 移動車
-    double joy_speed = -m_driverController_1.getRawAxis(0) * 1;
+    double joy_speed = -m_driverController_1.getRawAxis(0) * 0.8;
     double joy_turn = m_driverController_1.getRawAxis(1) * 0.6;
 
     // if (Math.abs(joy_speed) < 0.03) {
@@ -616,11 +646,16 @@ public class Robot extends TimedRobot {
     }
 
     if (m_driverController_2.getPOV() == 90) {
-      pick_speed += 0.05;
+      if(pick_speed<1){
+        pick_speed += 0.05;
+      }
     }
 
     if (m_driverController_2.getPOV() == 270) {
-      pick_speed -= 0.05;
+      if(pick_speed>0){
+        pick_speed -= 0.05;
+
+      }
     }
     pickball(pick_switch, pick_speed);
 
@@ -629,7 +664,6 @@ public class Robot extends TimedRobot {
       shoot_switch = !shoot_switch; // 切換射球開關
       if (shoot_switch) {
         dribble_switch = false;
-        start_time_shoot = Timer.getFPGATimestamp();
       }
     } else {
       if (!forwardlimitswith_dribble.get()) {
@@ -642,7 +676,9 @@ public class Robot extends TimedRobot {
 
     // 射球馬達增減速
     if (m_driverController_2.getPOV() == 0) {
-      neo_shoot_speed += 500;
+      if(neo_shoot_speed<16000){
+        neo_shoot_speed += 500;
+      }
     }
     if (m_driverController_2.getPOV() == 180) {
       if (neo_shoot_speed > 0) {
