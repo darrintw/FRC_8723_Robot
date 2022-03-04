@@ -60,7 +60,7 @@ public class Robot extends TimedRobot {
   double limelight_output_D;
   double limelight_middle_x = 0; // 回傳之X座標之目標值
   double limelight_middle_D = 50; // 回傳之Y座標之目標值
-  double limelight_range_x = 0.1;
+  double limelight_range_x = 1;
   double limelight_range_D = 5;
 
   // x_pid_index
@@ -153,7 +153,7 @@ public class Robot extends TimedRobot {
   //
   private void led_init() {
     m_led = new AddressableLED(2); // LED控制器
-    m_ledBuffer = new AddressableLEDBuffer(18); // led數量
+    m_ledBuffer = new AddressableLEDBuffer(50); // led數量
     m_led.setLength(m_ledBuffer.getLength());
     led_set(255, 97, 0, m_led, m_ledBuffer);
   }
@@ -319,6 +319,7 @@ public class Robot extends TimedRobot {
     limelight_output_x = limelight_pidController_x.calculate(limelight_center_x);
     limelight_output_D = limelight_pidController_D.calculate(limelight_center_D);
     if (run) {
+      System.out.println(is_basket);
       // System.out.println(limelight_center_y);
       if (limelight_area != 0) {
         // is_basket = false;
@@ -384,39 +385,30 @@ public class Robot extends TimedRobot {
 
   // 用LED顯示狀態
   private void show_status() {
-    if (!climb_switch) {
-      if (lidar_getDistinct() <= 50) {
-        // while (lidar_getDistinct() <= 50) {
-        //   if (Timer.getFPGATimestamp() - start_time_led >= 0.1) {
-        //     start_time_led = Timer.getFPGATimestamp();
-        //     led_set(255, 0, 0, m_led, m_ledBuffer);
-        //   }
-        // }
+    if(shoot_switch) {
+      led_set(255, 0, 0, m_led, m_ledBuffer);
+    }
+    else if (check_basket_switch) {
+      if (is_basket) {
+        led_set(128, 0, 128, m_led, m_ledBuffer);
+      } else if (!is_basket) {
+        led_set(0, 0, 255, m_led, m_ledBuffer);
+      }
+    } else if (climb_switch) {
+      led_set(0, 255, 0, m_led, m_ledBuffer);
+    }
+    else if (!climb_switch || !check_basket_switch || !shoot_switch) {
+      if (lidar_getDistinct() <= 70) {
+        led_set(255, 0, 0, m_led, m_ledBuffer);
       } else {
-        if (shoot_switch) { // 藍到紫
-          int r = 0;
-          // while (r <= 127 && shoot_switch) {
-          //   if (Timer.getFPGATimestamp() - start_time_led >= 0.1) {
-          //     start_time_led = Timer.getFPGATimestamp();
-          //     led_set(255, 0, 0, m_led, m_ledBuffer);
-          //     r += 5;
-          //   }
-          // }
-        } else if (dribble_switch) {
-          led_set(255, 255, 0, m_led, m_ledBuffer); // 黃燈
+        if (dribble_switch) {
+          led_set(255, 97, 0, m_led, m_ledBuffer);
         } else {
           led_set(0, 0, 255, m_led, m_ledBuffer);
         }
       }
-    } else if (climb_switch) {
-      System.out.println("Show");      
-      led_set(0, 255, 0, m_led, m_ledBuffer);
-    } else if (check_basket_switch) {
-      // while (check_basket_switch && Timer.getFPGATimestamp() - start_time_led >= Math.abs(limelight_output_x)) {
-      //   start_time_led = Timer.getFPGATimestamp();
-      //   led_set(238, 130, 238, m_led, m_ledBuffer);
-      // }
     }
+
   }
 
   private void show_dashboard() {
@@ -466,7 +458,10 @@ public class Robot extends TimedRobot {
     // PID控制設定
     limelight_pidController_x.setSetpoint(limelight_middle_x);
     limelight_pidController_D.setSetpoint(limelight_middle_D);
-    // 初始化DashBoard
+
+    // 設定電流與轉速
+    // m_motor25.setSmartCurrentLimit(40, 15000);
+    // m_motor26.setSmartCurrentLimit(40, 15000);
   }
 
   /**
@@ -590,7 +585,6 @@ public class Robot extends TimedRobot {
     start_time_auto = Timer.getFPGATimestamp();
     start_time_led = Timer.getFPGATimestamp();
     led_set(255, 97, 0, m_led, m_ledBuffer);
-    // led_set(255, 97, 0, m_led_3, m_ledBuffer_3);
   }
 
   /** This function is called periodically during operator control. */
@@ -605,8 +599,8 @@ public class Robot extends TimedRobot {
     // raspberrypi_pidController_y = new PIDController(raspberrypi_y_kP,
     // raspberrypi_y_kI, raspberrypi_y_kD);
     // 移動車
-    double joy_speed = -m_driverController_1.getRawAxis(0) * 0.7;
-    double joy_turn = m_driverController_1.getRawAxis(1) * 0.5;
+    double joy_speed = -m_driverController_1.getRawAxis(0) * 1;
+    double joy_turn = m_driverController_1.getRawAxis(1) * 0.6;
 
     // if (Math.abs(joy_speed) < 0.03) {
     // joy_speed = 0;
@@ -769,24 +763,7 @@ public class Robot extends TimedRobot {
     }
 
     if (climb_switch) {
-      if (forwardlimitswith_climb.get()) {
-        if (m_driverController_2.getLeftTriggerAxis() > 0) { // 順時鐘
-          climb(true, m_driverController_2.getLeftTriggerAxis() * 0.4);
-          climb_clock = 1;
-        } else if (m_driverController_2.getRightTriggerAxis() > 0) { // 逆時鐘
-          climb(true, -m_driverController_2.getRightTriggerAxis() * 0.4);
-          climb_clock = -1;
-        } else {
-          climb(false, 0);
-        }
-      } else {
-        if (!forwardlimitswith_climb.get()) {
-          climb(true, 0.06 * -climb_clock);
-          Timer.delay(0.3);
-          climb_switch = false;
-        }
-        climb(false, 0);
-      }
+
     }
   }
 }
