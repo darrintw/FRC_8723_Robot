@@ -40,7 +40,7 @@ public class Robot extends TimedRobot {
    */
   // 參數定義
   double pick_speed = 0.6; // 撿球速度
-  double neo_shoot_speed = 10000; // 射球轉速
+  double neo_shoot_speed = 9500; // 射球轉速
   double joy_limite = 0.025; // 過濾Xbox香菇頭抖動值
   boolean pick_switch = false; // 撿球開關
   boolean dribble_switch = false; // 運球開關
@@ -60,7 +60,7 @@ public class Robot extends TimedRobot {
   double limelight_output_x;
   double limelight_output_D;
   double limelight_middle_x = 0; // 回傳之X座標之目標值
-  double limelight_middle_D = 50; // 回傳之Y座標之目標值
+  double limelight_middle_D = 70; // 回傳之Y座標之目標值
   double limelight_range_x = 5;
   double limelight_range_D = 5;
 
@@ -425,9 +425,9 @@ public class Robot extends TimedRobot {
     }
     else if (!climb_switch && !check_basket_switch && !shoot_switch) 
     {
-      if (lidar_getDistinct() <= 70) 
+      if (lidar_getDistinct() <= limelight_middle_D) 
       {
-        led_set(255, 0, 0, m_led, m_ledBuffer);
+        led_set(255, 255, 255, m_led, m_ledBuffer);
       } 
       else 
       {
@@ -551,7 +551,7 @@ public class Robot extends TimedRobot {
     is_basket = false;
     is_ball = false;
     pick_speed = 0.6;
-    neo_shoot_speed = 10000;
+    neo_shoot_speed = 9500;
     limelight_middle_x = 0;
     limelight_middle_D = 50;
     // 設定一般鏡頭
@@ -614,7 +614,7 @@ public class Robot extends TimedRobot {
     is_basket = false;
     is_ball = false;
     pick_speed = 0.6;
-    neo_shoot_speed = 10000;
+    neo_shoot_speed = 9500;
     limelight_middle_x = 0;
     limelight_middle_D = 50;
     // 設定一般鏡頭
